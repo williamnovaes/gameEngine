@@ -5,19 +5,25 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import javax.swing.JFrame;
 
-public class Game extends Canvas implements Runnable {
+public class Game extends Canvas implements Runnable, KeyListener {
 
 	private static final long serialVersionUID = 1L;
 	
 	//constantes
 	private final int WIDTH = 240;
 	private final int HEIGHT = 200;
-	private final int SCALE = 3;
+	private final int SCALE = 4;
 	private static double fpsLimiter = 60.0;
 	private final double ns = 1000000000 / fpsLimiter;
 	
@@ -25,24 +31,27 @@ public class Game extends Canvas implements Runnable {
 	private BufferedImage image;
 	public static JFrame frame;
 	
+	public List<Entity> entities;
+	
 	private boolean isRunning = false;
 	
-	private Spritesheet sheet;
-//	private BufferedImage player;
-	private BufferedImage[] player;
-	private int frames = 0;
-	private int maxFrames = 8;
-	private int curAnimation = 0;
+	private Map<Integer,  EMove> inputsMoves;
 	
 	public Game() {
-		sheet = new Spritesheet("/astronauta_iddle_32x32.png");
+		addKeyListener(this);
+		popularInputsMoves();
+		entities = new ArrayList<>();
 		//coordenadas do sprite (posicao x e y, e tamanho width height)
 //		player = sheet.getSprite(0, 0, 32, 32);
-		player = new BufferedImage[5];
-		player = getSpritesAnimation(player, sheet);
 		this.setPreferredSize(new Dimension(WIDTH*SCALE, HEIGHT*SCALE));
 		initFrame();
 		image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+		
+		Player player = new Player(0, 0, 32, 32, 0, "iddle", new Spritesheet("/astronauta_iddle_32x32.png").getSpritesAnimation(5));
+		player.addNewAnimation("walk", new Spritesheet("/astronauta_walk_32x32.png").getSpritesAnimation(4));
+//		Player player = new Player(0, 0, 32, 32, 0, "walk", new Spritesheet("/astronauta_walk_32x32.png").getSpritesAnimation(4));
+//		player.addNewAnimation("iddle", new Spritesheet("/astronauta_iddle_32x32.png").getSpritesAnimation(5));
+		entities.add(player);
 	}
 	
 	public void initFrame() {
@@ -71,13 +80,8 @@ public class Game extends Canvas implements Runnable {
 	}
 	
 	public void update() {
-		frames++;
-		if (frames > maxFrames) {
-			frames = 0;
-			curAnimation++;
-			if (curAnimation > player.length-1) {
-				curAnimation = 0;
-			}
+		for (Entity entity : entities) {
+			entity.update();
 		}
 	}
 	
@@ -93,6 +97,12 @@ public class Game extends Canvas implements Runnable {
 		g.setColor(new Color(255, 255, 255));
 		g.fillRect(0, 0, WIDTH, HEIGHT);
 		
+		Graphics2D g2D = (Graphics2D) g;
+		
+		for (Entity entity : entities) {
+			entity.render(g2D);
+		}
+		
 		//render circle (fillOval - circle)
 //		g.setColor(Color.RED);
 //		g.fillOval(0, 0, 20, 20);
@@ -106,10 +116,15 @@ public class Game extends Canvas implements Runnable {
 		//g.drawLine();
 		
 		//render sprite
-		Graphics2D g2 = (Graphics2D) g;
 		//rotate: 1- grau de rotacao em radiano, 2- posicao eixo x onde ocorre a rotacao, 3- posicao eixo y onde ocorre a rotacao
 //		g2.rotate(Math.toRadius(45), 90+16, 90+16);
-		g2.drawImage(player[curAnimation], 0, 20, null);
+//		if (isWalking) {
+//			g2.rotate(Math.toRadians(0), 16, 16);
+//			g2.drawImage(playerWalk[curAnimation], 0, 0, null);
+//		} else {
+//			g2.drawImage(playerIddle[curAnimation], 0, 20, null);
+//			
+//		}
 		
 //		g.drawImage(player, 0, 20, null);
 		
@@ -160,15 +175,36 @@ public class Game extends Canvas implements Runnable {
 		Game.fpsLimiter = fpsLimiter;
 	}
 	
-	public BufferedImage[] getSpritesAnimation(BufferedImage[] player, Spritesheet sheet) {
-		try {
-			for (int i = 0; i < player.length; i++) {
-				player[i] = sheet.getSprite(32*i, 0, 32, 32);
-			}
-			return player;
-		} catch (Exception e) {
-			return null;
+	private void popularInputsMoves() {
+		this.inputsMoves = new HashMap<>();
+		for (EMove move : EMove.values()) {
+			this.inputsMoves.put(move.getInput(), move);
 		}
 	}
 
+	@Override
+	public void keyTyped(KeyEvent e) {
+	}
+
+	@Override
+	public void keyPressed(KeyEvent e) {
+		for (Entity entity : entities) {
+			EMove move = null;
+			move = inputsMoves.get(e.getExtendedKeyCode());
+			if (move != null) {
+				move.action(entity);
+			}
+		}
+	}
+
+	@Override
+	public void keyReleased(KeyEvent e) {
+		for (Entity entity : entities) {
+			EMove move = null;
+			move = inputsMoves.get(e.getExtendedKeyCode());
+			if (move != null) {
+				move.actionReverse(entity);
+			}
+		}
+	}
 }
